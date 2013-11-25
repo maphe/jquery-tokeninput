@@ -34,6 +34,7 @@ var DEFAULT_SETTINGS = {
     theme: null,
     zindex: 999,
     resultsLimit: null,
+    propertyToCss: null,
 
     enableHTML: false,
 
@@ -604,6 +605,11 @@ $.TokenList = function (input, url_or_data, settings) {
         var readonly = item.readonly === true ? true : false;
 
         if(readonly) $this_token.addClass($(input).data("settings").classes.tokenReadOnly);
+        
+        var propertyToCss = $(input).data("settings").propertyToCss;
+        if (propertyToCss != null && typeof item[propertyToCss] != 'undefined') {
+            $this_token.addClass($(input).data("settings").classes.token + '-' + propertyToCss + '-' + item[propertyToCss]);
+        }
 
         $this_token.addClass($(input).data("settings").classes.token).insertBefore(input_token);
 

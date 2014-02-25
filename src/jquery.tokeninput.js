@@ -186,6 +186,10 @@ var methods = {
             closest.append(tmpInput);
             return tmpInput;
         }
+    },
+    clearCache: function () {
+        $(this).data("tokenInputObject").clearCache();
+        return this;
     }
 };
 
@@ -525,6 +529,10 @@ $.TokenList = function (input, url_or_data, settings) {
 
     this.toggleDisabled = function(disable) {
         toggleDisabled(disable);
+    };
+    
+    this.clearCache = function() {
+        cache.clear();
     };
 
     // Resize input to maximum width so the placeholder can be seen
@@ -1075,6 +1083,10 @@ $.TokenList.Cache = function (options) {
 
     this.get = function (query) {
         return data[query];
+    };
+    
+    this.clear = function() {
+        flush();
     };
 };
 }(jQuery));

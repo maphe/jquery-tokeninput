@@ -990,7 +990,7 @@ $.TokenList = function (input, url_or_data, settings) {
     function do_search() {
         var query = input_box.val();
 
-        if(query && query.length) {
+        if((($(input).data("settings").url != null) || ($(input).data("settings").local_data != null)) && (query && query.length)) {
             if(selected_token) {
                 deselect_token($(selected_token), POSITION.AFTER);
             }

@@ -35,6 +35,7 @@ var DEFAULT_SETTINGS = {
     zindex: 999,
     resultsLimit: null,
     propertyToCss: null,
+    externalTokenContainerId: null,
 
     enableHTML: false,
 
@@ -53,11 +54,12 @@ var DEFAULT_SETTINGS = {
     tokenDelimiter: ",",
     preventDuplicates: false,
     tokenValue: "id",
+    textareaSourceId: null,
 
     // Behavioral settings
     allowFreeTagging: false,
     allowTabOut: false,
-    
+
     // Data storage
     returnAsJson: false,
     dataFilter: function(item) {
@@ -76,7 +78,11 @@ var DEFAULT_SETTINGS = {
     idPrefix: "token-input-",
 
     // Keep track if the input is currently in disabled mode
-    disabled: false
+    disabled: false,
+
+    // Buttons
+    addButtonId: null,
+    clearButtonId: null
 };
 
 // Default classes to use when theming
@@ -93,7 +99,8 @@ var DEFAULT_CLASSES = {
     selectedDropdownItem: "token-input-selected-dropdown-item",
     inputToken: "token-input-input-token",
     focused: "token-input-focused",
-    disabled: "token-input-disabled"
+    disabled: "token-input-disabled",
+    externalContainer: "token-input-external-container"
 };
 
 // Input box position "enum"
@@ -203,6 +210,19 @@ $.fn.tokenInput = function (method) {
     }
 };
 
+$.fn.tokenArea = function (params) {
+    var $area = $(this);
+    var name = $area.attr('name');
+
+    $area.attr('name', name+'-area');
+    var $input = $('<input type="text" />').attr('name', name);
+    $area.after($input);
+    $input.tokenInput(null, $.extend({}, {
+        textareaSourceId: $area.attr('id')
+    }, params));
+    $area.next().hide();
+};
+
 // TokenList class for each input
 $.TokenList = function (input, url_or_data, settings) {
     //
@@ -210,7 +230,11 @@ $.TokenList = function (input, url_or_data, settings) {
     //
 
     // Configure the data source
-    if($.type(url_or_data) === "string" || $.type(url_or_data) === "function") {
+    var tokenlist = this;
+
+    if(url_or_data == null) {
+        $(input).data("settings").url = null;
+    } else if($.type(url_or_data) === "string" || $.type(url_or_data) === "function") {
         // Set the url to query against
         $(input).data("settings").url = url_or_data;
 
@@ -265,7 +289,7 @@ $.TokenList = function (input, url_or_data, settings) {
         })
         .attr("id", $(input).data("settings").idPrefix + input.id)
         .focus(function () {
-            if ($(input).data("settings").disabled) {
+            if (($(input).data("settings").disabled) || ($(input).data("settings").url == null)) {
                 return false;
             } else
             if ($(input).data("settings").tokenLimit === null || $(input).data("settings").tokenLimit !== token_count) {
@@ -438,6 +462,13 @@ $.TokenList = function (input, url_or_data, settings) {
         })
         .insertBefore(hidden_input);
 
+        if ($(input).data("settings").externalTokenContainerId != null) {
+            var $externalContainer = $('#' + $(input).data("settings").externalTokenContainerId);
+            $externalContainer.addClass($(input).data("settings").classes.externalContainer);
+
+            token_list.addClass('external-mode');
+        }
+
     // The token holding the input box
     var input_token = $("<li />")
         .addClass($(input).data("settings").classes.inputToken)
@@ -489,6 +520,8 @@ $.TokenList = function (input, url_or_data, settings) {
         $(input).data("settings").onReady.call();
     }
 
+    listen_buttons();
+
     //
     // Public functions
     //
@@ -530,7 +563,7 @@ $.TokenList = function (input, url_or_data, settings) {
     this.toggleDisabled = function(disable) {
         toggleDisabled(disable);
     };
-    
+
     this.clearCache = function() {
         cache.clear();
     };
@@ -613,7 +646,7 @@ $.TokenList = function (input, url_or_data, settings) {
         var readonly = item.readonly === true ? true : false;
 
         if(readonly) $this_token.addClass($(input).data("settings").classes.tokenReadOnly);
-        
+
         var propertyToCss = $(input).data("settings").propertyToCss;
         if (propertyToCss != null && typeof item[propertyToCss] != 'undefined') {
             $this_token.addClass($(input).data("settings").classes.token + '-' + propertyToCss + '-' + item[propertyToCss]);
@@ -633,6 +666,10 @@ $.TokenList = function (input, url_or_data, settings) {
                       return false;
                   }
               });
+        }
+
+        if ($(input).data("settings").externalTokenContainerId != null) {
+            handle_external_div();
         }
 
         // Store data on the token
@@ -766,6 +803,15 @@ $.TokenList = function (input, url_or_data, settings) {
         token.remove();
         selected_token = null;
 
+        if ($(input).data("settings").externalTokenContainerId != null) {
+            var $externalContainer = $('#' + $(input).data("settings").externalTokenContainerId);
+            var tokenClass = $(input).data("settings").classes.token;
+            $externalContainer.empty();
+            $externalContainer.append(token_list.find('.'+tokenClass).clone());
+
+            handle_external_div();
+        }
+
         // Show the input box and give it focus again
         focus_with_timeout(input_box);
 
@@ -811,7 +857,6 @@ $.TokenList = function (input, url_or_data, settings) {
         } else {
             hidden_input.val(token_values.join($(input).data("settings").tokenDelimiter));
         }
-
     }
 
     // Hide and clear the results dropdown
@@ -1053,6 +1098,43 @@ $.TokenList = function (input, url_or_data, settings) {
         setTimeout(function() { obj.focus(); }, 50);
     }
 
+    function handle_external_div() {
+        if ($(input).data("settings").externalTokenContainerId != null) {
+            var $externalContainer = $('#' + $(input).data("settings").externalTokenContainerId);
+            var tokenClass = $(input).data("settings").classes.token;
+            $externalContainer.empty();
+            token_list.find('.'+tokenClass).each(function() {
+                $externalContainer.append($(this).clone().data('origin', $(this).find('.token-input-delete-token-socialmoov')).on('click', function(){
+                    delete_token($(this).data('origin').parent());
+                    hidden_input.change();
+                    return false;
+                }));
+            });
+        }
+    }
+
+    function listen_buttons() {
+        if ($(input).data("settings").addButtonId != null) {
+            var $addBtn = $('#'+$(input).data("settings").addButtonId);
+            if ($(input).data("settings").textareaSourceId != null) {
+                $addBtn.on('click', function(){
+                    var $area = $('#'+$(input).data("settings").textareaSourceId);
+                    add_token({id: $area.val(), name: $area.val()});
+                    $area.val('');
+                });
+            } else {
+                $addBtn.on('click', function(){
+                    input_box.trigger(jQuery.Event('keydown', { which: KEY.ENTER } ));
+                });
+            }
+        }
+        if ($(input).data("settings").clearButtonId != null) {
+            var $clearBtn = $('#'+$(input).data("settings").clearButtonId);
+            $clearBtn.on('click', function(){
+                tokenlist.clear();
+            });
+        }
+    }
 };
 
 // Really basic cache for the results
@@ -1084,10 +1166,9 @@ $.TokenList.Cache = function (options) {
     this.get = function (query) {
         return data[query];
     };
-    
+
     this.clear = function() {
         flush();
     };
 };
 }(jQuery));
-
